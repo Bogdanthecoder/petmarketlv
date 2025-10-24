@@ -1,30 +1,36 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import ListingCard from '../components/ListingCard'
 
-export default function ReportPage() {
-  const [listingId, setListingId] = useState('')
-  const [contact, setContact] = useState('')
-  const [reason, setReason] = useState('')
+export default function HomePage() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  async function submit(e) {
-    e.preventDefault()
-    const { error } = await supabase.from('reports').insert([{ listing_id: listingId, reporter_contact: contact, reason }])
-    if (error) return alert('Error: ' + error.message)
-    alert('Thanks for the report. We will review it.')
-    setListingId(''); setContact(''); setReason('')
-  }
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('published', true)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (!cancelled) {
+        setItems(data || [])
+        setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  if (loading) return <p>Loading…</p>
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Report listing</h1>
-      <form onSubmit={submit} className="card space-y-3">
-        <input className="input" placeholder="Listing ID" value={listingId} onChange={e=>setListingId(e.target.value)} />
-        <input className="input" placeholder="Your email or phone (optional)" value={contact} onChange={e=>setContact(e.target.value)} />
-        <textarea className="input" placeholder="Reason" value={reason} onChange={e=>setReason(e.target.value)} />
-        <button className="btn">Send report</button>
-      </form>
-      <p className="mt-4 text-sm muted">Tip: in MVP you can copy the listing ID from Supabase dashboard.</p>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {items.map(item => <ListingCard key={item.id} listing={item} />)}
+      {items.length === 0 && <p>No listings yet. Be the first to post!</p>}
     </div>
   )
 }
